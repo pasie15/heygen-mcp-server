@@ -68,7 +68,23 @@ Add the server to your MCP settings file (typically `claude_desktop_config.json`
 }
 ```
 
-Or if you're using it as a global npm package:
+Or using npx (no installation required):
+
+```json
+{
+  "mcpServers": {
+    "heygen": {
+      "command": "npx",
+      "args": ["heygen-mcp-server"],
+      "env": {
+        "HEYGEN_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Or if installed globally (`npm install -g heygen-mcp-server`):
 
 ```json
 {
