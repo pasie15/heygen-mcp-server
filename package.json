@@ -1,5 +1,5 @@
 {
-  "name": "@heygen/mcp-server",
+  "name": "heygen-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for HeyGen API - Assets and Folders management",
   "main": "dist/index.js",
@@ -11,7 +11,8 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node dist/index.js",
-    "dev": "tsc && node dist/index.js"
+    "dev": "tsc && node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -19,10 +20,25 @@
     "api",
     "assets",
     "folders",
-    "video"
+    "video",
+    "model-context-protocol",
+    "mcp-server"
   ],
-  "author": "",
+  "author": "pasie15",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pasie15/heygen-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pasie15/heygen-mcp-server/issues"
+  },
+  "homepage": "https://github.com/pasie15/heygen-mcp-server#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "node-fetch": "^3.3.2"
