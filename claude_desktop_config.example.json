@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "heygen": {
+      "command": "node",
+      "args": [
+        "E:\\My Projects\\Other\\Misc Projects\\MCP Server Builder\\mcp-servers\\heygen\\dist\\index.js"
+      ],
+      "env": {
+        "HEYGEN_API_KEY": "your_heygen_api_key_here"
+      }
+    }
+  }
+}

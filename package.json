@@ -1,0 +1,34 @@
+{
+  "name": "@heygen/mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for HeyGen API - Assets and Folders management",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "heygen-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "heygen",
+    "api",
+    "assets",
+    "folders",
+    "video"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}
