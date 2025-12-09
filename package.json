@@ -1,6 +1,6 @@
 {
   "name": "heygen-mcp-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for HeyGen API - Assets and Folders management",
   "main": "dist/index.js",
   "type": "module",
