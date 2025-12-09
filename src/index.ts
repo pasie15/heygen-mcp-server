@@ -8,6 +8,7 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 import fetch from "node-fetch";
+import { readFileSync } from "fs";
 
 const API_KEY = process.env.HEYGEN_API_KEY;
 
@@ -33,7 +34,7 @@ async function makeRequest(
 
   if (contentType) {
     headers["Content-Type"] = contentType;
-  } else if (body && typeof body === "object") {
+  } else if (body && typeof body === "object" && !Buffer.isBuffer(body)) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -43,7 +44,14 @@ async function makeRequest(
   };
 
   if (body) {
-    options.body = typeof body === "string" ? body : JSON.stringify(body);
+    // Handle different body types: Buffer (binary), string, or object (JSON)
+    if (Buffer.isBuffer(body)) {
+      options.body = body;
+    } else if (typeof body === "string") {
+      options.body = body;
+    } else {
+      options.body = JSON.stringify(body);
+    }
   }
 
   const response = await fetch(url, options);
@@ -91,10 +99,35 @@ const tools: Tool[] = [
   {
     name: "list_assets",
     description:
-      "Retrieve a paginated list of all assets (images, audios, videos) created under your HeyGen account.",
+      "Retrieve a paginated list of all assets (images, audios, videos) created under your HeyGen account. Supports filtering by folder, file type, and pagination.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        folder_id: {
+          type: "string",
+          description:
+            "Unique identifier of the folder to retrieve the assets from. Can be retrieved from the List Folders endpoint.",
+        },
+        file_type: {
+          type: "string",
+          description:
+            "Type of the asset to retrieve (audio, video, or image)",
+          enum: ["audio", "video", "image"],
+        },
+        limit: {
+          type: "number",
+          description:
+            "Maximum number of assets to return in a single response. Accepts values from 0 to 100.",
+          minimum: 0,
+          maximum: 100,
+        },
+        token: {
+          type: "string",
+          description:
+            "Pagination token used to retrieve the next set of results. This token is returned in the response and can be included in the next request to continue listing remaining assets.",
+        },
+      },
+      required: [],
     },
   },
   {
@@ -115,22 +148,68 @@ const tools: Tool[] = [
   {
     name: "list_folders",
     description:
-      "Retrieve a paginated list of all folders created under your HeyGen account.",
+      "Retrieve a paginated list of all folders created under your HeyGen account. Supports filtering by parent folder, name search, trash status, and pagination.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        limit: {
+          type: "number",
+          description:
+            "Maximum number of folders to return in a single response. Accepts values from 0 to 100.",
+          minimum: 0,
+          maximum: 100,
+        },
+        parent_id: {
+          type: "string",
+          description: "Filter folders by their parent folder ID.",
+        },
+        name_filter: {
+          type: "string",
+          description: "Search for folders by full or partial name.",
+        },
+        is_trash: {
+          type: "boolean",
+          description:
+            "Whether to retrieve folders that are in the trash. Returns only the deleted folders if set to true.",
+        },
+        token: {
+          type: "string",
+          description:
+            "Pagination token used to retrieve the next set of results. This token is returned in the response and can be included in the next request to continue listing remaining folders.",
+        },
+      },
+      required: [],
     },
   },
   {
     name: "create_folder",
-    description: "Create a new folder in your HeyGen account.",
+    description:
+      "Create a new folder in your HeyGen account. Can create top-level folders or subfolders by specifying a parent_id.",
     inputSchema: {
       type: "object",
       properties: {
+        name: {
+          type: "string",
+          description: "Name of the folder.",
+        },
         project_type: {
           type: "string",
-          description: "Type of project folder (e.g., 'mixed')",
+          description:
+            "Type of project associated with the folder. The instant_avatar and asset project types are Enterprise-Only. Defaults to 'mixed'.",
+          enum: [
+            "video_translate",
+            "instant_avatar",
+            "video",
+            "asset",
+            "brand_kit",
+            "mixed",
+          ],
           default: "mixed",
+        },
+        parent_id: {
+          type: "string",
+          description:
+            "Unique identifier of the parent folder. Leave empty to create a top-level folder, or provide an existing folder's ID to create a subfolder under it.",
         },
       },
       required: [],
@@ -217,35 +296,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           mime_type: string;
         };
 
-        // In a real implementation, you would read the file from the file system
-        // For now, we'll provide instructions
+        // Read the file as binary data
+        const fileBuffer = readFileSync(file_path);
+
+        // Upload the file to HeyGen
+        const result = await makeRequest(
+          `${UPLOAD_BASE_URL}/asset`,
+          "POST",
+          fileBuffer,
+          mime_type
+        );
+
         return {
           content: [
             {
               type: "text",
-              text: `To upload an asset, you need to:
-1. Read the file at: ${file_path}
-2. Send a POST request to: ${UPLOAD_BASE_URL}/asset
-3. Set Content-Type header to: ${mime_type}
-4. Send the raw binary data as the request body
-
-Note: File upload requires reading binary data which is not yet implemented in this tool.
-You can use the following curl command as reference:
-
-curl -X POST "${UPLOAD_BASE_URL}/asset" \\
-  -H "X-Api-Key: ${API_KEY}" \\
-  -H "Content-Type: ${mime_type}" \\
-  --data-binary "@${file_path}"`,
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
       }
 
       case "list_assets": {
-        const result = await makeRequest(
-          `${API_BASE_URL}/asset/list`,
-          "GET"
-        );
+        const { folder_id, file_type, limit, token } = args as {
+          folder_id?: string;
+          file_type?: string;
+          limit?: number;
+          token?: string;
+        };
+
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        if (folder_id) queryParams.append("folder_id", folder_id);
+        if (file_type) queryParams.append("file_type", file_type);
+        if (limit !== undefined) queryParams.append("limit", limit.toString());
+        if (token) queryParams.append("token", token);
+
+        const queryString = queryParams.toString();
+        const url = queryString
+          ? `${API_BASE_URL}/asset/list?${queryString}`
+          : `${API_BASE_URL}/asset/list`;
+
+        const result = await makeRequest(url, "GET");
         return {
           content: [
             {
@@ -274,7 +366,29 @@ curl -X POST "${UPLOAD_BASE_URL}/asset" \\
 
       // Folders operations
       case "list_folders": {
-        const result = await makeRequest(`${API_BASE_URL}/folders`, "GET");
+        const { limit, parent_id, name_filter, is_trash, token } = args as {
+          limit?: number;
+          parent_id?: string;
+          name_filter?: string;
+          is_trash?: boolean;
+          token?: string;
+        };
+
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        if (limit !== undefined) queryParams.append("limit", limit.toString());
+        if (parent_id) queryParams.append("parent_id", parent_id);
+        if (name_filter) queryParams.append("name_filter", name_filter);
+        if (is_trash !== undefined)
+          queryParams.append("is_trash", is_trash.toString());
+        if (token) queryParams.append("token", token);
+
+        const queryString = queryParams.toString();
+        const url = queryString
+          ? `${API_BASE_URL}/folders?${queryString}`
+          : `${API_BASE_URL}/folders`;
+
+        const result = await makeRequest(url, "GET");
         return {
           content: [
             {
@@ -286,11 +400,24 @@ curl -X POST "${UPLOAD_BASE_URL}/asset" \\
       }
 
       case "create_folder": {
-        const { project_type = "mixed" } = args as { project_type?: string };
+        const { name, project_type = "mixed", parent_id } = args as {
+          name?: string;
+          project_type?: string;
+          parent_id?: string;
+        };
+
+        // Build request body
+        const body: any = {
+          project_type,
+        };
+
+        if (name) body.name = name;
+        if (parent_id) body.parent_id = parent_id;
+
         const result = await makeRequest(
           `${API_BASE_URL}/folders/create`,
           "POST",
-          { project_type }
+          body
         );
         return {
           content: [
